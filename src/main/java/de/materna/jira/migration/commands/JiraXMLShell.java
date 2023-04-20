@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -67,16 +69,22 @@ public class JiraXMLShell {
             
         }
         {
+            ExecutorService executorService = Executors.newFixedThreadPool(10);
             NodeList customFieldValues = sourceDoc.getElementsByTagName("CustomFieldValue");
     
             // CustomFields lesen und hochshiften
             for (int i = 0; i < customFieldValues.getLength(); i++) {
                 Node customFieldValue = customFieldValues.item(i);
-                log.info("CustomFieldValue: " + getAttrValue("id", customFieldValue));
-                this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", customFieldValue)) + maxCustomFieldValue), customFieldValue);
-                if(hasAttr("customfield", customFieldValue)) {
-                    this.setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("customfield", customFieldValue)) + maxCustomFieldID), customFieldValue);
-                }
+                executorService.execute(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", customFieldValue)) + maxCustomFieldValue), customFieldValue);
+                        setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("customfield", customFieldValue)) + maxCustomFieldID), customFieldValue);
+                    }
+
+                });
+
             }
         }
         {
