@@ -42,11 +42,12 @@ public class JiraXMLShell {
         Document targetDoc = getEntitiesDocumentFromZip(targetXML);
         Node newRootNode = getNewXMLDocument(targetDoc);
 
-        final int maxCustomFieldID = getMaxID("CustomField", "id", targetDoc);
-        final int maxCustomFieldOption = getMaxID("CustomFieldOption", "id", targetDoc);
-        final int maxFieldConfigScheme = getMaxID("FieldConfigScheme", "id", targetDoc);
-        final int maxFieldConfiguration = getMaxID("FieldConfiguration", "id", targetDoc);
-        final int maxFieldConfigSchemeIssueType = getMaxID("FieldConfigSchemeIssueType", "id", targetDoc);
+        final int maxCustomFieldID = 40000; //getMaxID("CustomField", "id", targetDoc);
+        final int maxCustomFieldOption = 40000; //getMaxID("CustomFieldOption", "id", targetDoc);
+        final int maxFieldConfigScheme = 40000;//getMaxID("FieldConfigScheme", "id", targetDoc);
+        final int maxFieldConfiguration = 40000; //getMaxID("FieldConfiguration", "id", targetDoc);
+        final int maxFieldConfigSchemeIssueType = 400000; //getMaxID("FieldConfigSchemeIssueType", "id", targetDoc);
+        final int maxCustomFieldValue = 5000000; //getMaxID("FieldConfigSchemeIssueType", "id", targetDoc);
 
         Map<String, Node> fieldConfigSchemeMap = new HashMap<>();
         Map<String, Node> fieldConfigurationMap = new HashMap<>();
@@ -65,7 +66,16 @@ public class JiraXMLShell {
             }
             
         }
-
+        {
+            NodeList customFieldValues = sourceDoc.getElementsByTagName("CustomFieldValue");
+    
+            // CustomFields lesen und hochshiften
+            for (int i = 0; i < customFieldValues.getLength(); i++) {
+                Node customFieldValue = customFieldValues.item(i);
+                this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", customFieldValue)) + maxCustomFieldValue), customFieldValue);
+                this.setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("fieldconfigscheme", customFieldValue)) + maxCustomFieldID), customFieldValue);
+            }
+        }
         {
             NodeList fieldConfigSchemes = sourceDoc.getElementsByTagName("FieldConfigScheme");
     
@@ -139,13 +149,26 @@ public class JiraXMLShell {
             }
         }
 
-        TransformerFactory transformerFactory = TransformerFactory.newInstance();
-        Transformer transformer = transformerFactory.newTransformer();
-        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-        DOMSource source = new DOMSource(newDocument);
-        File file = new File(sourceXML + "__" + targetXML + ".xml");
-        StreamResult result = new StreamResult(file);
-        transformer.transform(source, result);
+        {
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            DOMSource source = new DOMSource(newDocument);
+            File file = new File(sourceXML + "__" + targetXML + ".xml");
+            StreamResult result = new StreamResult(file);
+            transformer.transform(source, result);
+
+        }
+        {
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            DOMSource source = new DOMSource(sourceDoc);
+            File file = new File( "entities_shifted.xml");
+            StreamResult result = new StreamResult(file);
+            transformer.transform(source, result);
+
+        }
     }
 
     private void appendNode(Node newRootNode, Node customField) {
