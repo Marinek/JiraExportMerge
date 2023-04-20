@@ -39,8 +39,8 @@ public class JiraXMLShell {
     public void exportXML(String sourceXML, String targetXML)
             throws IOException, ParserConfigurationException, SAXException, TransformerException {
         Document sourceDoc = getEntitiesDocumentFromZip(sourceXML);
-        Document targetDoc = getEntitiesDocumentFromZip(targetXML);
-        Node newRootNode = getNewXMLDocument(targetDoc);
+        //Document targetDoc = getEntitiesDocumentFromZip(targetXML);
+        Node newRootNode = getNewXMLDocument(sourceDoc);
 
         final int maxCustomFieldID = 40000; //getMaxID("CustomField", "id", targetDoc);
         final int maxCustomFieldOption = 40000; //getMaxID("CustomFieldOption", "id", targetDoc);
