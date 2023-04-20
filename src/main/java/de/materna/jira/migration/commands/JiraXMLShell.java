@@ -73,7 +73,7 @@ public class JiraXMLShell {
             for (int i = 0; i < customFieldValues.getLength(); i++) {
                 Node customFieldValue = customFieldValues.item(i);
                 this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", customFieldValue)) + maxCustomFieldValue), customFieldValue);
-                this.setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("fieldconfigscheme", customFieldValue)) + maxCustomFieldID), customFieldValue);
+                this.setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("customfield", customFieldValue)) + maxCustomFieldID), customFieldValue);
             }
         }
         {
