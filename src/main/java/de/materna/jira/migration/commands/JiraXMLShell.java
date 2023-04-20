@@ -72,8 +72,11 @@ public class JiraXMLShell {
             // CustomFields lesen und hochshiften
             for (int i = 0; i < customFieldValues.getLength(); i++) {
                 Node customFieldValue = customFieldValues.item(i);
+                log.info("CustomFieldValue: " + getAttrValue("id", customFieldValue));
                 this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", customFieldValue)) + maxCustomFieldValue), customFieldValue);
-                this.setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("customfield", customFieldValue)) + maxCustomFieldID), customFieldValue);
+                if(hasAttr("customfield", customFieldValue)) {
+                    this.setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("customfield", customFieldValue)) + maxCustomFieldID), customFieldValue);
+                }
             }
         }
         {
@@ -169,6 +172,11 @@ public class JiraXMLShell {
             transformer.transform(source, result);
 
         }
+    }
+
+    private boolean hasAttr(String attrName, Node node) {
+        Node attribute = node.getAttributes().getNamedItem(attrName);
+        return attribute != null;
     }
 
     private void appendNode(Node newRootNode, Node customField) {
