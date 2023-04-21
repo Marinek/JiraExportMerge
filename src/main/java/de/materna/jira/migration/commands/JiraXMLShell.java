@@ -1,8 +1,12 @@
 package de.materna.jira.migration.commands;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FilterReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -27,8 +31,10 @@ import org.springframework.shell.standard.ShellMethod;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
+import de.XMLChar;
 import lombok.extern.log4j.Log4j2;
 
 @ShellComponent
@@ -41,15 +47,15 @@ public class JiraXMLShell {
     public void exportXML(String sourceXML, String targetXML)
             throws IOException, ParserConfigurationException, SAXException, TransformerException {
         Document sourceDoc = getEntitiesDocumentFromZip(sourceXML);
-        //Document targetDoc = getEntitiesDocumentFromZip(targetXML);
+        // Document targetDoc = getEntitiesDocumentFromZip(targetXML);
         Node newRootNode = getNewXMLDocument(sourceDoc);
 
-        final int maxCustomFieldID = 40000; //getMaxID("CustomField", "id", targetDoc);
-        final int maxCustomFieldOption = 40000; //getMaxID("CustomFieldOption", "id", targetDoc);
-        final int maxFieldConfigScheme = 40000;//getMaxID("FieldConfigScheme", "id", targetDoc);
-        final int maxFieldConfiguration = 40000; //getMaxID("FieldConfiguration", "id", targetDoc);
-        final int maxFieldConfigSchemeIssueType = 400000; //getMaxID("FieldConfigSchemeIssueType", "id", targetDoc);
-        final int maxCustomFieldValue = 5000000; //getMaxID("FieldConfigSchemeIssueType", "id", targetDoc);
+        final int maxCustomFieldID = 40000; // getMaxID("CustomField", "id", targetDoc);
+        final int maxCustomFieldOption = 40000; // getMaxID("CustomFieldOption", "id", targetDoc);
+        final int maxFieldConfigScheme = 40000;// getMaxID("FieldConfigScheme", "id", targetDoc);
+        final int maxFieldConfiguration = 40000; // getMaxID("FieldConfiguration", "id", targetDoc);
+        final int maxFieldConfigSchemeIssueType = 400000; // getMaxID("FieldConfigSchemeIssueType", "id", targetDoc);
+        final int maxCustomFieldValue = 5000000; // getMaxID("FieldConfigSchemeIssueType", "id", targetDoc);
 
         Map<String, Node> fieldConfigSchemeMap = new HashMap<>();
         Map<String, Node> fieldConfigurationMap = new HashMap<>();
@@ -57,30 +63,38 @@ public class JiraXMLShell {
 
         {
             NodeList customFields = sourceDoc.getElementsByTagName("CustomField");
-    
+
             // CustomFields lesen und hochshiften
             for (int i = 0; i < customFields.getLength(); i++) {
                 Node customField = customFields.item(i);
                 System.out.println(customField);
                 Node idAttribute = customField.getAttributes().getNamedItem("id");
-                idAttribute.setNodeValue(String.valueOf(Integer.parseInt(idAttribute.getNodeValue()) + maxCustomFieldID));
+                idAttribute
+                        .setNodeValue(String.valueOf(Integer.parseInt(idAttribute.getNodeValue()) + maxCustomFieldID));
                 appendNode(newRootNode, customField);
             }
-            
+
         }
         {
-            ExecutorService executorService = Executors.newFixedThreadPool(10);
+            ExecutorService executorService = Executors.newFixedThreadPool(25);
             NodeList customFieldValues = sourceDoc.getElementsByTagName("CustomFieldValue");
-    
+
             // CustomFields lesen und hochshiften
             for (int i = 0; i < customFieldValues.getLength(); i++) {
                 Node customFieldValue = customFieldValues.item(i);
+                final int y = i;
                 executorService.execute(new Runnable() {
 
                     @Override
                     public void run() {
-                        setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", customFieldValue)) + maxCustomFieldValue), customFieldValue);
-                        setAttr("customfield", String.valueOf(Integer.parseInt(getAttrValue("customfield", customFieldValue)) + maxCustomFieldID), customFieldValue);
+                        if(y % 100 == 0) log.info("Bearbeite: " + y);
+                        setAttr("id",
+                                String.valueOf(
+                                        Integer.parseInt(getAttrValue("id", customFieldValue)) + maxCustomFieldValue),
+                                customFieldValue);
+                        setAttr("customfield", String.valueOf(
+                                Integer.parseInt(getAttrValue("customfield", customFieldValue)) + maxCustomFieldID),
+                                customFieldValue);
                     }
 
                 });
@@ -89,73 +103,91 @@ public class JiraXMLShell {
         }
         {
             NodeList fieldConfigSchemes = sourceDoc.getElementsByTagName("FieldConfigScheme");
-    
+
             // CustomFields lesen und hochshiften
             for (int i = 0; i < fieldConfigSchemes.getLength(); i++) {
                 Node fieldConfigScheme = fieldConfigSchemes.item(i);
                 fieldConfigSchemeMap.put(getAttrValue("id", fieldConfigScheme), fieldConfigScheme);
-                this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", fieldConfigScheme)) + maxFieldConfigScheme), fieldConfigScheme);
-                
+                this.setAttr("id",
+                        String.valueOf(Integer.parseInt(getAttrValue("id", fieldConfigScheme)) + maxFieldConfigScheme),
+                        fieldConfigScheme);
+
             }
-            
+
         }
 
         {
             NodeList fieldConfigSchemeIssueTypes = sourceDoc.getElementsByTagName("FieldConfigSchemeIssueType");
-    
+
             // CustomFields lesen und hochshiften
             for (int i = 0; i < fieldConfigSchemeIssueTypes.getLength(); i++) {
                 Node fieldConfigSchemeIssueType = fieldConfigSchemeIssueTypes.item(i);
-                this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", fieldConfigSchemeIssueType)) + maxFieldConfigSchemeIssueType), fieldConfigSchemeIssueType);
-                this.setAttr("fieldconfigscheme", String.valueOf(Integer.parseInt(getAttrValue("fieldconfigscheme", fieldConfigSchemeIssueType)) + maxFieldConfigScheme), fieldConfigSchemeIssueType);
-                this.setAttr("fieldconfiguration", String.valueOf(Integer.parseInt(getAttrValue("fieldconfiguration", fieldConfigSchemeIssueType)) + maxFieldConfiguration), fieldConfigSchemeIssueType);
-                fieldConfigSchemeIssueTypeMap.put(getAttrValue("fieldconfigscheme", fieldConfigSchemeIssueType), fieldConfigSchemeIssueType);
+                this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", fieldConfigSchemeIssueType))
+                        + maxFieldConfigSchemeIssueType), fieldConfigSchemeIssueType);
+                this.setAttr("fieldconfigscheme",
+                        String.valueOf(Integer.parseInt(getAttrValue("fieldconfigscheme", fieldConfigSchemeIssueType))
+                                + maxFieldConfigScheme),
+                        fieldConfigSchemeIssueType);
+                this.setAttr("fieldconfiguration",
+                        String.valueOf(Integer.parseInt(getAttrValue("fieldconfiguration", fieldConfigSchemeIssueType))
+                                + maxFieldConfiguration),
+                        fieldConfigSchemeIssueType);
+                fieldConfigSchemeIssueTypeMap.put(getAttrValue("fieldconfigscheme", fieldConfigSchemeIssueType),
+                        fieldConfigSchemeIssueType);
             }
         }
         {
             NodeList fieldConfigurations = sourceDoc.getElementsByTagName("FieldConfiguration");
-    
+
             // CustomFields lesen und hochshiften
             for (int i = 0; i < fieldConfigurations.getLength(); i++) {
                 Node fieldConfiguration = fieldConfigurations.item(i);
-                this.setAttr("id", String.valueOf(Integer.parseInt(getAttrValue("id", fieldConfiguration)) + maxFieldConfiguration), fieldConfiguration);
+                this.setAttr("id",
+                        String.valueOf(
+                                Integer.parseInt(getAttrValue("id", fieldConfiguration)) + maxFieldConfiguration),
+                        fieldConfiguration);
                 fieldConfigurationMap.put(getAttrValue("id", fieldConfiguration), fieldConfiguration);
             }
         }
-        
+
         {
             NodeList customFieldOptions = sourceDoc.getElementsByTagName("CustomFieldOption");
             Set<Node> copyNodes = new HashSet<>();
-            
+
             for (int i = 0; i < customFieldOptions.getLength(); i++) {
                 Node customFieldOption = customFieldOptions.item(i);
                 String customFieldOptionOrigId = this.getAttrValue("id", customFieldOption);
                 String customfieldIdOrig = this.getAttrValue("customfield", customFieldOption);
                 String customfieldconfigIdOrig = this.getAttrValue("customfieldconfig", customFieldOption);
-              
+
                 Node fieldConfigScheme = fieldConfigSchemeMap.get(customfieldconfigIdOrig);
 
-                this.setAttr("id", String.valueOf(Integer.parseInt(customFieldOptionOrigId) + maxCustomFieldOption), customFieldOption);
-                
-                this.setAttr("customfield", String.valueOf(Integer.parseInt(customfieldIdOrig) + maxCustomFieldID), customFieldOption);
-                
+                this.setAttr("id", String.valueOf(Integer.parseInt(customFieldOptionOrigId) + maxCustomFieldOption),
+                        customFieldOption);
+
+                this.setAttr("customfield", String.valueOf(Integer.parseInt(customfieldIdOrig) + maxCustomFieldID),
+                        customFieldOption);
+
                 this.setAttr("customfieldconfig", this.getAttrValue("id", fieldConfigScheme), customFieldOption);
 
                 appendNode(newRootNode, customFieldOption);
 
                 // Jetzt hier noch FieldConfigScheme mitnehmen, weil wir es hier referenzieren
 
-                this.setAttr("fieldid","customfield_" + getAttrValue("customfield", customFieldOption), fieldConfigScheme);
+                this.setAttr("fieldid", "customfield_" + getAttrValue("customfield", customFieldOption),
+                        fieldConfigScheme);
 
                 copyNodes.add(fieldConfigScheme);
 
-                Node fieldConfigSchemeIssueType = fieldConfigSchemeIssueTypeMap.get(getAttrValue("id", fieldConfigScheme));
+                Node fieldConfigSchemeIssueType = fieldConfigSchemeIssueTypeMap
+                        .get(getAttrValue("id", fieldConfigScheme));
                 copyNodes.add(fieldConfigSchemeIssueType);
 
-                copyNodes.add(fieldConfigurationMap.get(getAttrValue("fieldconfiguration", fieldConfigSchemeIssueType)));
+                copyNodes
+                        .add(fieldConfigurationMap.get(getAttrValue("fieldconfiguration", fieldConfigSchemeIssueType)));
             }
 
-            for(Node node : copyNodes) {
+            for (Node node : copyNodes) {
                 appendNode(newRootNode, node);
             }
         }
@@ -175,7 +207,7 @@ public class JiraXMLShell {
             Transformer transformer = transformerFactory.newTransformer();
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             DOMSource source = new DOMSource(sourceDoc);
-            File file = new File( "entities_shifted.xml");
+            File file = new File("entities_shifted.xml");
             StreamResult result = new StreamResult(file);
             transformer.transform(source, result);
 
@@ -237,22 +269,49 @@ public class JiraXMLShell {
 
     private Document getEntitiesDocumentFromZip(String zipFileName)
             throws IOException, ParserConfigurationException, SAXException {
+        log.info("Reading File: " + zipFileName);
         ZipFile zipFile = new ZipFile(zipFileName);
 
         ZipEntry entry = zipFile.getEntry("entities.xml");
 
         InputStream inputStream = zipFile.getInputStream(entry);
 
+        Reader reader = new BufferedReader(new InputStreamReader(inputStream));
+
+        FilterReader fileReader = new JiraXMLShell.InvalidXmlCharacterFilter(reader);
+
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
 
-        Document document = builder.parse(inputStream);
+        InputSource is = new InputSource(fileReader);
+
+        Document document = builder.parse(is);
 
         inputStream.close();
         zipFile.close();
 
         return document;
 
+    }
+
+    class InvalidXmlCharacterFilter extends FilterReader {
+
+        protected InvalidXmlCharacterFilter(Reader in) {
+            super(in);
+        }
+
+        @Override
+        public int read(char[] cbuf, int off, int len) throws IOException {
+            int read = super.read(cbuf, off, len);
+            if (read == -1)
+                return read;
+
+            for (int i = off; i < off + read; i++) {
+                if (!XMLChar.isValid(cbuf[i]))
+                    cbuf[i] = '?';
+            }
+            return read;
+        }
     }
 
 }
